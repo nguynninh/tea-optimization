@@ -86,7 +86,7 @@ Bài toán được mã hóa thành một bài Quy hoạch Tuyến tính (Linear
 | 6 kV – dưới 22 kV | 1.812 | 1.178 | 3.348 |
 | Dưới 6 kV | 1.896 | 1.241 | 3.474 |
 
-> `E_1` và `E_2` được hiểu là chi phí điện theo giờ của ca 1 và ca 2, lấy từ biểu giá EVN ở trên sau khi xác định cấp điện áp thực tế của xưởng và khung giờ vận hành tương ứng.
+> `e_1` và `e_2` được hiểu là chi phí điện đơn vị cho mỗi kg chè tươi xử lý ở ca 1 và ca 2, được quy đổi từ biểu giá EVN ở trên kết hợp với mức tiêu thụ điện thực tế của máy.
 > 
 > Link: https://www.evn.com.vn/d/vi-VN/news/Bieu-gia-ban-le-dien-theo-Quyet-dinh-so-1279QD-BCT-ngay-0952025-cua-Bo-Cong-Thuong-60-28-502668?utm_source=chatgpt.com
 
@@ -129,59 +129,33 @@ $$n_2 \in \mathbb{Z}_{\ge 0} \quad \text{— số thợ bố trí ở ca 2}$$
 
 ### 2.3 Tính Toán Đầu Ra (Output Computations)
 
-#### A. Kế Hoạch Thu Mua (Purchasing Plan)
+Gọi:
 
-Thay vì bị giới hạn bởi kho chứa sẵn có, hệ thống tính ngược ra đúng lượng nguyên liệu cần đi mua cho ngày hôm đó — không thừa, không thiếu:
+$$x_1 = nl\_ca1\_l1,\quad x_2 = nl\_ca2\_l1,\quad x_3 = nl\_ca1\_l2,\quad x_4 = nl\_ca2\_l2$$
 
-$$W_{buy} = nl\_ca1\_l1 + nl\_ca2\_l1 + nl\_ca1\_l2 + nl\_ca2\_l2$$
+Kế hoạch thu mua:
 
-#### A.1. Năng lực theo nhân công
+$$W_{buy} = x_1 + x_2 + x_3 + x_4$$
 
-Tổng lượng nguyên liệu xử lý ở mỗi ca còn bị giới hạn bởi số thợ được bố trí:
+Sản lượng đầu ra:
 
-$$nl\_ca1\_l1 + nl\_ca1\_l2 \le n_1 \cdot a_1$$
+$$Q_1 = \frac{x_1(1-rd_{ca1\_12}) + x_2(1-rd_{ca2\_12})}{k}$$
 
-$$nl\_ca2\_l1 + nl\_ca2\_l2 \le n_2 \cdot a_2$$
+$$Q_2 = \frac{x_1 rd_{ca1\_12} + x_3(1-rd_{ca1\_23}) + x_2 rd_{ca2\_12} + x_4(1-rd_{ca2\_23})}{k}$$
 
-#### B. Báo cáo Sản lượng
+$$Q_3 = \frac{x_3 rd_{ca1\_23} + x_4 rd_{ca2\_23}}{k}$$
 
-Chè khô Loại 1 — thu từ các mẻ **chủ đích Loại 1** sau khi trừ phần rớt hạng ở từng ca:
+Chi phí:
 
-$$Q_1 = \frac{nl\_ca1\_l1}{k} \cdot (1 - rd_{ca1\_12}) + \frac{nl\_ca2\_l1}{k} \cdot (1 - rd_{ca2\_12})$$
+$$Cost_{labor} = (n_1 + n_2)\cdot W_{wage}$$
 
-Chè khô Loại 2 — gồm từ **4 nguồn**: mẻ Loại 1 bị rớt hạng ở từng ca + mẻ chủ đích Loại 2 thành công ở từng ca:
-
-$$Q_2 = \frac{nl\_ca1\_l1}{k} \cdot rd_{ca1\_12} + \frac{nl\_ca1\_l2}{k} \cdot (1 - rd_{ca1\_23}) + \frac{nl\_ca2\_l1}{k} \cdot rd_{ca2\_12} + \frac{nl\_ca2\_l2}{k} \cdot (1 - rd_{ca2\_23})$$
-
-Chè khô Loại 3 — phế phẩm sinh ra từ các mẻ Loại 2 bị rớt hạng ở từng ca:
-
-$$Q_3 = \frac{nl\_ca1\_l2}{k} \cdot rd_{ca1\_23} + \frac{nl\_ca2\_l2}{k} \cdot rd_{ca2\_23}$$
-
-Tổng sản lượng chè khô:
-
-$$Q_{total} = Q_1 + Q_2 + Q_3$$
-
-#### C. Báo cáo Chi phí
-
-Tổng tiền nhân công:
-
-$$Cost_{labor} = (n_1 + n_2) \cdot W_{wage}$$
-
-Tổng tiền điện và vận hành máy:
-
-$$Cost_{electric} = E_1 \cdot T_1 + E_2 \cdot T_2$$
-
-Tổng chi phí sản xuất trong ngày:
+$$Cost_{electric} = e_1(x_1+x_3) + e_2(x_2+x_4)$$
 
 $$Cost_{total} = Cost_{labor} + Cost_{electric}$$
 
-#### D. Báo cáo Tài chính
+Doanh thu và lợi nhuận:
 
-Doanh thu dự kiến:
-
-$$Revenue = Q_1 \cdot P_1 + Q_2 \cdot P_2 + Q_3 \cdot P_3$$
-
-Lợi nhuận ròng:
+$$Revenue = P_1Q_1 + P_2Q_2 + P_3Q_3$$
 
 $$Profit = Revenue - Cost_{total}$$
 
@@ -191,17 +165,21 @@ $$Profit = Revenue - Cost_{total}$$
 
 Hệ thống có hai luồng sản xuất song song (luồng `l1` — chủ đích Loại 1, luồng `l2` — chủ đích Loại 2), cùng chia sẻ tải của máy theo từng khung giờ.
 
-**(C1) Đáp ứng đơn hàng** — Tổng Loại 1 thực thu (sau khi khấu trừ rờt hạng) phải đủ giao khách:
+**(C1) Công suất máy theo khung giờ** — Tổng nguyên liệu đưa vào mỗi ca (bất kể chủ đích loại nào) không vượt tải máy:
 
-$$\frac{nl\_ca1\_l1}{k} \cdot (1 - rd_{ca1\_12}) + \frac{nl\_ca2\_l1}{k} \cdot (1 - rd_{ca2\_12}) \ge D_{VIP} + D_{Merchant}$$
+$$x_1 + x_3 \le C_1T_1$$
 
-**(C2) Công suất máy theo khung giờ** — Tổng nguyên liệu đưa vào mỗi ca (bất kể chủ đích loại nào) không vượt tải máy:
+$$x_2 + x_4 \le C_2T_2$$
 
-$$nl\_ca1\_l1 + nl\_ca1\_l2 \le C_1 \cdot T_1$$
+**(C2) Năng lực nhân công** — Khối lượng xử lý của mỗi ca không vượt năng suất theo số thợ bố trí:
 
-$$nl\_ca2\_l1 + nl\_ca2\_l2 \le C_2 \cdot T_2$$
+$$x_1 + x_3 \le a_1n_1$$
+
+$$x_2 + x_4 \le a_2n_2$$
 
 **(C3) Đáp ứng nhu cầu đầu ra** — Sản lượng loại 1 và loại 2 phải đủ yêu cầu đặt trước:
+
+> `D_1` và `D_2` được hiểu là kg chè khô thành phẩm.
 
 $$Q_1 \ge D_1$$
 
@@ -209,17 +187,17 @@ $$Q_2 \ge D_2$$
 
 **(C4) Điều kiện thực tế** — Mọi biến phân bổ và số thợ không âm:
 
-$$nl\_ca1\_l1,\ nl\_ca2\_l1,\ nl\_ca1\_l2,\ nl\_ca2\_l2 \ge 0,\quad n_1,\ n_2 \in \mathbb{Z}_{\ge 0}$$
+$$x_1, x_2, x_3, x_4 \ge 0,\quad n_1, n_2 \in \mathbb{Z}_{\ge 0}$$
 
-> **Cơ chế tự động:** Gurobi sẽ tự cân đối hai luồng. Nếu phần lỗi ở một ca đã đủ làm luồng Loại 2 kém hấp dẫn, mô hình có thể giảm hoặc bỏ hẳn biến của luồng đó. Khi giá trị kinh tế của Loại 2 đủ tốt, mô hình sẽ đẩy thêm nguyên liệu vào luồng này.
+> **Cơ chế tự động:** Gurobi sẽ tự cân đối hai luồng. Nếu phần lợi nhuận biên của luồng Loại 2 không đủ tốt, mô hình có thể giảm hoặc bỏ luồng này; nếu có lợi, mô hình sẽ phân bổ thêm nguyên liệu vào luồng đó.
 
 ---
 
 ### 2.5 Hàm Mục Tiêu (Objective Function)
 
-Tìm $nl\_ca1\_l1,\ nl\_ca2\_l1,\ nl\_ca1\_l2,\ nl\_ca2\_l2,\ n_1,\ n_2$ sao cho tổng chi phí trong ngày là nhỏ nhất:
+Tìm $x_1, x_2, x_3, x_4, n_1, n_2$ sao cho lợi nhuận trong ngày là lớn nhất:
 
-$$\min \; Cost_{total} = Cost_{labor} + Cost_{electric}$$
+$$\max \; Profit = Revenue - Cost_{total}$$
 
 ---
 
