@@ -1,226 +1,262 @@
-# 🍃 Tea Production Optimization using Gurobi
+# Tea Production Optimization
 
-Dự án áp dụng mô hình Toán học (Quy hoạch Tuyến tính) và bộ giải Gurobi để tối ưu hóa kế hoạch sản xuất tại xưởng chế biến chè truyền thống.
+Du an toi uu hoa ke hoach san xuat che bang mo hinh quy hoach tuyen tinh. Chuong trinh tinh cach phan bo che tuoi vao ca ngay, ca toi va so lao dong can dung de dap ung don hang voi loi nhuan cao nhat.
 
-## 1. Bối Cảnh & Vấn Đề Kinh Doanh
+## 1. Bai toan
 
-Nghề chế biến chè truyền thống không chỉ đòi hỏi kinh nghiệm mà còn là một bài toán tối ưu hóa nguồn lực đầy thách thức. Trong quá trình vận hành thực tế, xưởng sản xuất luôn phải đối mặt với bài toán kiểm soát chất lượng và rủi ro hao hụt theo sự phân cấp rõ rệt:
+Xuong che co 2 ca san xuat:
 
-* **Loại 1**: Thành phẩm cao cấp, mang lại giá trị lớn nhất nhưng có yêu cầu khắt khe về định lượng để đáp ứng đúng các đơn đặt hàng VIP.
-* **Loại 2**: Các sản phẩm hàng công nghiệp, thường được bán buôn với số lượng lớn.
-* **Loại 3**: Phế phẩm từ khâu nhặt/sàng được gom thành **Loại 3** để vớt vát chi phí.
+- Ca ngay: dien on dinh, rui ro rot hang thap.
+- Ca toi: dieu kien kem hon, rui ro rot hang cao hon.
 
-Bên cạnh đó, năng lực sản xuất của xưởng bị chi phối mạnh mẽ bởi các rào cản hạ tầng theo thời gian:
+Thanh pham co 3 loai:
 
-* **Ca ngày (Điều kiện lý tưởng)**: Lưới điện ổn định, nhân sự đầy đủ, cho phép xưởng vận hành tối đa công suất với tỷ lệ lỗi thấp.
-* **Ca tối (Điều kiện rủi ro)**: Tình trạng sụt áp lưới điện và thiếu hụt nhân sự buộc xưởng phải giảm tải máy móc để tránh cháy nổ, kéo theo tỷ lệ rớt hạng sản phẩm tăng cao.
+- Loai 1: che chat luong cao, gia ban cao nhat.
+- Loai 2: che chat luong trung binh.
+- Loai 3: che rot hang/phe pham, van co the ban voi gia thap.
 
-**Mục tiêu:** Thoát khỏi phương pháp lên kế hoạch "cảm tính". Dự án ứng dụng mô hình toán học để tính toán chính xác lượng chè tươi nạp vào từng máy, từng ca nhằm Tối đa hóa lợi nhuận, cam kết trả đủ đơn hàng VIP đúng hạn và tuyệt đối không làm quá tải hệ thống điện.
+Muc tieu cua chuong trinh la tra loi cac cau hoi:
 
----
+- Mua bao nhieu kg che tuoi?
+- Chia che tuoi vao ca ngay va ca toi nhu the nao?
+- Nen san xuat theo huong Loai 1 hay Loai 2 o tung ca?
+- Can bao nhieu nguoi cho moi ca?
+- Phuong an nao dat loi nhuan cao nhat ma van giao du Loai 1 va Loai 2?
 
-## 2. Mô Hình Toán Học (Mathematical Model)
+## 2. Mo hinh
 
-Bài toán được mã hóa thành một bài Quy hoạch Tuyến tính (Linear Programming) với hai biến quyết định, phản ánh đúng hai ca sản xuất thực tế của xưởng mỗi ngày.
+### Bien quyet dinh
 
----
+| Bien | Y nghia |
+| --- | --- |
+| `x1` | Kg che tuoi vao ca ngay, chu dich lam Loai 1 |
+| `x2` | Kg che tuoi vao ca toi, chu dich lam Loai 1 |
+| `x3` | Kg che tuoi vao ca ngay, chu dich lam Loai 2 |
+| `x4` | Kg che tuoi vao ca toi, chu dich lam Loai 2 |
+| `n1` | So tho ca ngay |
+| `n2` | So tho ca toi |
 
-### 2.1 Tham Số Đầu Vào (Input Parameters)
+### Dau vao chinh
 
-**Đơn hàng & Nguyên liệu**
+Du lieu mac dinh nam o `data/baseline_scenario.json`.
 
-| Ký hiệu | Ý nghĩa | Ví dụ |
-|:-------:|---------|:-----:|
-| $D_{VIP}$ | Kg chè Loại 1 khách VIP đặt | 20 kg |
-| $D_{Merchant}$ | Kg chè Loại 1 thương lái đặt | 20 kg |
-| $k$ | Hệ số hao hụt, chuyển đổi tươi → khô (kg tươi / 1 kg khô) | 4.5 |
+| Tham so | Y nghia |
+| --- | --- |
+| `D1`, `D2` | Nhu cau che kho Loai 1 va Loai 2 can giao |
+| `k` | He so quy doi che tuoi sang che kho |
+| `T1`, `T2` | So gio ca ngay va ca toi |
+| `C1`, `C2` | Cong suat may moi gio o tung ca |
+| `a1`, `a2` | Nang suat lao dong moi nguoi moi ca |
+| `W_wage` | Tien cong moi nguoi moi ca |
+| `e1`, `e2` | Chi phi dien quy doi tren moi kg che tuoi |
+| `P1`, `P2`, `P3` | Gia ban che Loai 1, Loai 2, Loai 3 |
+| `rd_ca1_12` | Ty le Loai 1 rot xuong Loai 2 o ca ngay |
+| `rd_ca1_23` | Ty le Loai 2 rot xuong Loai 3 o ca ngay |
+| `rd_ca2_12` | Ty le Loai 1 rot xuong Loai 2 o ca toi |
+| `rd_ca2_23` | Ty le Loai 2 rot xuong Loai 3 o ca toi |
 
-**Thời gian & Năng lực sản xuất**
+### Cong thuc san luong
 
-| Ký hiệu | Ý nghĩa |
-|:-------:|---------|
-| $T_1$ | Tổng giờ làm việc ca bình thường (điện khỏe) |
-| $T_2$ | Tổng giờ làm việc ca cao điểm (điện yếu) |
-| $C_1,\ C_2$ | Công suất tối đa tại $T_1$ và $T_2$ (kg chè tươi/giờ) |
+```text
+Q1 = [(1 - rd_ca1_12) * x1 + (1 - rd_ca2_12) * x2] / k
 
-**Chi phí & Giá bán**
+Q2 = [rd_ca1_12 * x1
+      + (1 - rd_ca1_23) * x3
+      + rd_ca2_12 * x2
+      + (1 - rd_ca2_23) * x4] / k
 
-| Ký hiệu | Ý nghĩa |
-|:-------:|---------|
-| $n_1,\ n_2$ | Số thợ bố trí ở ca 1 và ca 2 (người) |
+Q3 = [rd_ca1_23 * x3 + rd_ca2_23 * x4] / k
+```
 
-**Tiền công thợ**
+Trong code hien tai, mo hinh dat `Q1 == D1` va `Q2 == D2`. Nghia la chuong trinh tim phuong an giao dung nhu cau Loai 1 va Loai 2, tranh san xuat du thua hai loai nay.
 
-| Ký hiệu | Ý nghĩa | Đơn vị | Giá trị |
-|:-------:|---------|:-----:|:-----:|
-| $W_{wage}$ | Tiền công thợ theo mỗi ca | VNĐ/ca/người | 300.000 - 450.000 |
+### Rang buoc
 
-**Năng suất lao động**
+- Tong che tuoi moi ca khong vuot cong suat may.
+- Tong che tuoi moi ca khong vuot nang luc xu ly cua so tho duoc bo tri.
+- San luong Loai 1 va Loai 2 phai bang nhu cau can giao.
+- Cac bien san luong khong am.
+- `n1`, `n2` la so nguyen khong am.
 
-| Ký hiệu | Ý nghĩa | Đơn vị | Giá trị |
-|:-------:|---------|:-----:|:-----:|
-| $a_1$ | Năng suất của 1 thợ ở ca 1, tức số kg chè tươi xử lý được trong 1 buổi | kg chè tươi/ca/người | nhập theo thực tế |
-| $a_2$ | Năng suất của 1 thợ ở ca 2, tức số kg chè tươi xử lý được trong 1 buổi | kg chè tươi/ca/người | nhập theo thực tế |
+### Ham muc tieu
 
-**Giá bán chè**
+```text
+Maximize Profit = Revenue - Cost_labor - Cost_electric
 
-| Ký hiệu | Ý nghĩa | Đơn vị | Giá trị |
-|:-------:|---------|:-----:|:-----:|
-| $P_1$ | Giá bán chè Loại 1 | VNĐ/kg | 95.000 |
-| $P_2$ | Giá bán chè Loại 2 | VNĐ/kg | 37.000 |
-| $P_3$ | Giá bán chè Loại 3 | VNĐ/kg | 8.000 |
+Revenue       = P1 * Q1 + P2 * Q2 + P3 * Q3
+Cost_labor    = W_wage * (n1 + n2)
+Cost_electric = e1 * (x1 + x3) + e2 * (x2 + x4)
+```
 
-**Nhu cầu đầu ra**
+## 3. Cau truc du an
 
-| Ký hiệu | Ý nghĩa | Đơn vị | Giá trị |
-|:-------:|---------|:-----:|:-----:|
-| $D_1$ | Nhu cầu chè khô Loại 1 cần giao | kg | nhập theo đơn |
-| $D_2$ | Nhu cầu chè khô Loại 2 cần giao | kg | nhập theo đơn |
+```text
+tea-optimization/
+├── main.py                         # Entry point de chay chuong trinh
+├── src/
+│   ├── main.py                     # CLI, in ket qua, goi solver
+│   └── solver.py                   # Data model va solver noi bo
+├── data/
+│   └── baseline_scenario.json      # Bo du lieu mac dinh
+├── analysis_heuristic_vs_optimal.py # So sanh cach lam thu cong va toi uu
+└── README.md
+```
 
-**Biểu giá điện EVN (áp dụng theo cấp điện áp)**
+## 4. Cach chay
 
-| Cấp điện áp | Giờ bình thường (đồng/kWh) | Giờ thấp điểm (đồng/kWh) | Giờ cao điểm (đồng/kWh) |
-|:-----------:|:---------------------------:|:------------------------:|:----------------------:|
-| $\ge 110$ kV | 1.728 | 1.094 | 3.141 |
-| 22 kV – dưới 110 kV | 1.749 | 1.136 | 3.242 |
-| 6 kV – dưới 22 kV | 1.812 | 1.178 | 3.348 |
-| Dưới 6 kV | 1.896 | 1.241 | 3.474 |
+### Yeu cau
 
-> `e_1` và `e_2` được hiểu là chi phí điện đơn vị cho mỗi kg chè tươi xử lý ở ca 1 và ca 2, được quy đổi từ biểu giá EVN ở trên kết hợp với mức tiêu thụ điện thực tế của máy.
-> 
-> Link: https://www.evn.com.vn/d/vi-VN/news/Bieu-gia-ban-le-dien-theo-Quyet-dinh-so-1279QD-BCT-ngay-0952025-cua-Bo-Cong-Thuong-60-28-502668?utm_source=chatgpt.com
+- Python 3.10 tro len.
+- Khong bat buoc cai Gurobi neu dung solver noi bo `exact`.
 
-**Hệ số rủi ro chất lượng (Risk Factors)**
+Kiem tra Python:
 
-> Mỗi ca sản xuất đều có rủi ro riêng; dù vận hành cẩn thận đến đâu thì vẫn có thể gặp sự cố hoặc hao hụt ngẫu nhiên, nên mô hình tách riêng rủi ro theo từng ca và từng hướng rớt hạng:
-> - `rd_ca1_12`: tại ca 1, mẻ chủ đích làm Loại 1 bị rớt xuống Loại 2
-> - `rd_ca1_23`: tại ca 1, mẻ chủ đích làm Loại 2 bị rớt xuống Loại 3
-> - `rd_ca2_12`: tại ca 2, mẻ chủ đích làm Loại 1 bị rớt xuống Loại 2
-> - `rd_ca2_23`: tại ca 2, mẻ chủ đích làm Loại 2 bị rớt xuống Loại 3
-
-| Ký hiệu | Ý nghĩa | Đơn vị | Giá trị |
-|:-------:|---------|:-----:|:-----:|
-| $rd_{ca1\_12}$ | Tỷ lệ mẻ chè chủ đích làm Loại 1 bị rớt xuống Loại 2 ở ca 1 | % | 2% |
-| $rd_{ca1\_23}$ | Tỷ lệ mẻ chè chủ đích làm Loại 2 bị rớt xuống Loại 3 ở ca 1 | % | 1% |
-| $rd_{ca2\_12}$ | Tỷ lệ mẻ chè chủ đích làm Loại 1 bị rớt xuống Loại 2 ở ca 2 | % | 8% |
-| $rd_{ca2\_23}$ | Tỷ lệ mẻ chè chủ đích làm Loại 2 bị rớt xuống Loại 3 ở ca 2 | % | 12% |
-
----
-
-### 2.2 Biến Quyết Định (Decision Variables)
-
-Lúc này, người điều hành có **6 quyết định** cần đưa ra mỗi ngày: 4 biến phân bổ nguyên liệu cho 2 ca và 2 biến nhân công cho 2 ca.
-
-> **Vì sao có thêm 2 biến nhân công?** Vì nếu muốn bài toán tự chọn số người tối thiểu cần dùng, thì số thợ ở mỗi ca không còn là dữ liệu cố định nữa mà trở thành biến quyết định để model tối ưu chi phí.
-
-$$nl\_ca1\_l1 \ge 0 \quad \text{— kg chè tươi vào ca 1, chủ đích làm Loại 1}$$
-
-$$nl\_ca2\_l1 \ge 0 \quad \text{— kg chè tươi vào ca 2, chủ đích làm Loại 1}$$
-
-$$nl\_ca1\_l2 \ge 0 \quad \text{— kg chè tươi vào ca 1, chủ đích làm Loại 2}$$
-
-$$nl\_ca2\_l2 \ge 0 \quad \text{— kg chè tươi vào ca 2, chủ đích làm Loại 2}$$
-
-$$n_1 \in \mathbb{Z}_{\ge 0} \quad \text{— số thợ bố trí ở ca 1}$$
-
-$$n_2 \in \mathbb{Z}_{\ge 0} \quad \text{— số thợ bố trí ở ca 2}$$
-
----
-
-### 2.3 Tính Toán Đầu Ra (Output Computations)
-
-Gọi:
-
-$$x_1 = nl\_ca1\_l1,\quad x_2 = nl\_ca2\_l1,\quad x_3 = nl\_ca1\_l2,\quad x_4 = nl\_ca2\_l2$$
-
-Kế hoạch thu mua:
-
-$$W_{buy} = x_1 + x_2 + x_3 + x_4$$
-
-Sản lượng đầu ra:
-
-$$Q_1 = \frac{x_1(1-rd_{ca1\_12}) + x_2(1-rd_{ca2\_12})}{k}$$
-
-$$Q_2 = \frac{x_1 rd_{ca1\_12} + x_3(1-rd_{ca1\_23}) + x_2 rd_{ca2\_12} + x_4(1-rd_{ca2\_23})}{k}$$
-
-$$Q_3 = \frac{x_3 rd_{ca1\_23} + x_4 rd_{ca2\_23}}{k}$$
-
-Chi phí:
-
-$$Cost_{labor} = (n_1 + n_2)\cdot W_{wage}$$
-
-$$Cost_{electric} = e_1(x_1+x_3) + e_2(x_2+x_4)$$
-
-$$Cost_{total} = Cost_{labor} + Cost_{electric}$$
-
-Doanh thu và lợi nhuận:
-
-$$Revenue = P_1Q_1 + P_2Q_2 + P_3Q_3$$
-
-$$Profit = Revenue - Cost_{total}$$
-
----
-
-### 2.4 Hệ Ràng Buộc Kỹ Thuật (Constraints)
-
-Hệ thống có hai luồng sản xuất song song (luồng `l1` — chủ đích Loại 1, luồng `l2` — chủ đích Loại 2), cùng chia sẻ tải của máy theo từng khung giờ.
-
-**(C1) Công suất máy theo khung giờ** — Tổng nguyên liệu đưa vào mỗi ca (bất kể chủ đích loại nào) không vượt tải máy:
-
-$$x_1 + x_3 \le C_1T_1$$
-
-$$x_2 + x_4 \le C_2T_2$$
-
-**(C2) Năng lực nhân công** — Khối lượng xử lý của mỗi ca không vượt năng suất theo số thợ bố trí:
-
-$$x_1 + x_3 \le a_1n_1$$
-
-$$x_2 + x_4 \le a_2n_2$$
-
-**(C3) Đáp ứng nhu cầu đầu ra** — Sản lượng loại 1 và loại 2 phải đủ yêu cầu đặt trước:
-
-> `D_1` và `D_2` được hiểu là kg chè khô thành phẩm.
-
-$$Q_1 \ge D_1$$
-
-$$Q_2 \ge D_2$$
-
-**(C4) Điều kiện thực tế** — Mọi biến phân bổ và số thợ không âm:
-
-$$x_1, x_2, x_3, x_4 \ge 0,\quad n_1, n_2 \in \mathbb{Z}_{\ge 0}$$
-
-> **Cơ chế tự động:** Gurobi sẽ tự cân đối hai luồng. Nếu phần lợi nhuận biên của luồng Loại 2 không đủ tốt, mô hình có thể giảm hoặc bỏ luồng này; nếu có lợi, mô hình sẽ phân bổ thêm nguyên liệu vào luồng đó.
-
----
-
-### 2.5 Hàm Mục Tiêu (Objective Function)
-
-Tìm $x_1, x_2, x_3, x_4, n_1, n_2$ sao cho lợi nhuận trong ngày là lớn nhất:
-
-$$\max \; Profit = Revenue - Cost_{total}$$
-
----
-
-## 3. Cài Đặt & Chạy Thử (How to run)
-
-Dự án sử dụng Python và bộ giải `gurobipy`.
-
-**Bước 1: Clone repository**
 ```bash
-git clone [https://github.com/nguynninh/tea-optimization.git](https://github.com/nguynninh/tea-optimization.git)
+python3 --version
+```
+
+### Chay nhanh bang solver noi bo
+
+Lenh nay chay duoc ngay, khong can cai them thu vien:
+
+```bash
+python3 main.py --solver exact
+```
+
+Ket qua mau voi `data/baseline_scenario.json`:
+
+```text
+=== KẾT QUẢ TỐI ƯU ===
+Solver su dung: exact-enumeration
+Biến quyết định:
+  x1 = 183.6735 kg -> che tuoi ca 1, luong 1
+  x2 = 0.0000 kg -> che tuoi ca 2, luong 1
+  x3 = 0.0000 kg -> che tuoi ca 1, luong 2
+  x4 = 251.5074 kg -> che tuoi ca 2, luong 2
+  n1 = 1 nguoi
+  n2 = 1 nguoi
+
+Tổng hợp sản lượng:
+  W_buy = 435.1809 kg che tuoi
+  Q1 = 40.0000 kg che kho loai 1
+  Q2 = 50.0000 kg che kho loai 2
+  Q3 = 6.7069 kg che kho loai 3
+
+Chi phí và doanh thu:
+  Chi phi nhan cong = 500,000 VND
+  Chi phi dien      = 115,579 VND
+  Doanh thu         = 7,510,362 VND
+  Loi nhuan         = 6,894,783 VND
+```
+
+### Chay che do tu dong
+
+```bash
+python3 main.py
+```
+
+Che do `auto` se dung Gurobi neu may da cai `gurobipy`; neu khong co Gurobi thi tu dong dung solver noi bo.
+
+### Chay voi Gurobi neu co license
+
+```bash
+python3 -m pip install gurobipy
+python3 main.py --solver gurobi
+```
+
+Neu may chua co license Gurobi hop le, hay dung:
+
+```bash
+python3 main.py --solver exact
+```
+
+### Chay voi file du lieu rieng
+
+Tao mot file JSON moi, vi du `data/my_scenario.json`, voi dung cac key giong `data/baseline_scenario.json`, sau do chay:
+
+```bash
+python3 main.py --data data/my_scenario.json --solver exact
+```
+
+Vi du noi dung file:
+
+```json
+{
+  "D1": 40.0,
+  "D2": 50.0,
+  "k": 4.5,
+  "T1": 8.0,
+  "T2": 8.0,
+  "C1": 80.0,
+  "C2": 65.0,
+  "a1": 400.0,
+  "a2": 350.0,
+  "W_wage": 250000.0,
+  "e1": 150.0,
+  "e2": 350.0,
+  "P1": 130000.0,
+  "P2": 45000.0,
+  "P3": 9000.0,
+  "rd_ca1_12": 0.02,
+  "rd_ca1_23": 0.01,
+  "rd_ca2_12": 0.08,
+  "rd_ca2_23": 0.12
+}
+```
+
+## 5. Phan tich heuristic vs optimal
+
+Script nay so sanh cach lap ke hoach thu cong voi nghiem toi uu:
+
+```bash
+python3 analysis_heuristic_vs_optimal.py
+```
+
+Ket qua hien tai cho thay nghiem toi uu cai thien loi nhuan khoang `1,397 VND/ngay` so voi quy tac thu cong tren bo du lieu mac dinh.
+
+## 6. Luu y quan trong
+
+- Cac ty le rui ro nhu `0.02` nghia la `2%`, khong nhap `2`.
+- `C1`, `C2` la cong suat kg che tuoi moi gio; tong cong suat ca se la `C1 * T1` va `C2 * T2`.
+- `a1`, `a2` la kg che tuoi moi nguoi xu ly duoc trong mot ca.
+- `e1`, `e2` la chi phi dien da quy doi theo kg che tuoi, khong phai don gia kWh truc tiep.
+- Neu tang `D1` hoac `D2` qua kha nang may/nhan cong, chuong trinh se bao khong co nghiem kha thi.
+- Solver noi bo phu hop cho bai demo nho trong repo. Neu mo rong bai toan lon hon, nen dung Gurobi hoac mot solver toi uu hoa chuyen dung.
+
+## 7. Loi thuong gap
+
+### `FileNotFoundError: data/baseline_scenario.json`
+
+Hay chay lenh tu thu muc goc cua repo:
+
+```bash
 cd tea-optimization
+python3 main.py --solver exact
 ```
 
-**Bước 2: Cài đặt thư viện**
+### `RuntimeError: gurobipy is not installed`
+
+Ban dang ep dung Gurobi bang `--solver gurobi` nhung may chua cai thu vien. Dung solver noi bo:
 
 ```bash
-pip install gurobipy
+python3 main.py --solver exact
 ```
 
-> **Lưu ý:** Bạn cần có license của Gurobi để chạy các bài toán cỡ lớn, tuy nhiên với bài toán demo này, bản dùng thử/academic mặc định là đủ.
-
-**Bước 3: Chạy chương trình**
+Hoac cai Gurobi:
 
 ```bash
-python main.py
+python3 -m pip install gurobipy
 ```
+
+### `No feasible solution for the provided scenario`
+
+Du lieu dau vao dang yeu cau san luong vuot kha nang san xuat. Hay kiem tra lai:
+
+- `D1`, `D2` co qua cao khong?
+- `T1`, `T2`, `C1`, `C2` co qua thap khong?
+- `a1`, `a2` co qua thap khong?
+- Ty le rot hang co qua cao khong?
+
+## 8. License
+
+Du an su dung license trong file `LICENSE`.
